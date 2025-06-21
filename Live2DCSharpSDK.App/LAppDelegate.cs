@@ -1,4 +1,6 @@
-﻿using Live2DCSharpSDK.Framework.Model;
+﻿using System.Numerics;
+
+using Live2DCSharpSDK.Framework.Model;
 using Live2DCSharpSDK.Framework.Rendering;
 
 namespace Live2DCSharpSDK.App;
@@ -39,11 +41,22 @@ public abstract class LAppDelegate : IDisposable
     /// <summary>
     /// Initialize関数で設定したウィンドウ幅
     /// </summary>
-    public int WindowWidth { get; protected set; }
+    public int WindowWidth { get; set; }
     /// <summary>
     /// Initialize関数で設定したウィンドウ高さ
     /// </summary>
-    public int WindowHeight { get; protected set; }
+    public int WindowHeight { get; set; }
+    
+    public int MonitorWidth { get; set; }
+    
+    public int MonitorHeight { get; set; }
+    
+    public int WindowX { get; private set; }
+    
+    public int WindowY { get; private set; }
+    
+    public Action<Vector2> WindowsPositionSetter { get; set; }
+    public Func<Vector2, bool> IsDraggableAreaHandler { get; set; }
 
     public abstract void OnUpdatePre();
     public abstract void GetWindowSize(out int width, out int height);
@@ -125,6 +138,10 @@ public abstract class LAppDelegate : IDisposable
     {
         if (press)
         {
+            var x = View.TransformViewX(_mouseX - WindowX);
+            var y = View.TransformViewY(_mouseY - WindowY);
+            if (!IsDraggableAreaHandler?.Invoke(new Vector2(x, y)) ?? false)
+                return;
             _captured = true;
             View.OnTouchesBegan(_mouseX, _mouseY);
         }
@@ -145,14 +162,19 @@ public abstract class LAppDelegate : IDisposable
     /// <param name="y">x座標</param>
     public void OnMouseCallBack(float x, float y)
     {
-        if (!_captured)
-        {
-            return;
-        }
-
+        View.OnLookingMoved(x, y);
         _mouseX = x;
         _mouseY = y;
-
+        if (!_captured)
+            return;
+        
         View.OnTouchesMoved(_mouseX, _mouseY);
+    }
+
+    public void OnWindowPositionCallback(int x, int y)
+    {
+        WindowX = x;
+        WindowY = y;
+        View.UpdateWindowPosition(x, y);
     }
 }

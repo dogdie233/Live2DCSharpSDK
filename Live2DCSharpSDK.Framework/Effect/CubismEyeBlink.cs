@@ -184,7 +184,7 @@ public class CubismEyeBlink
     /// <returns>次のまばたきを行う時刻[秒]</returns>
     private float DetermineNextBlinkingTiming()
     {
-        float r = _random.Next() / int.MaxValue;
+        float r = _random.NextSingle();
 
         return _userTimeSeconds + (r * (2.0f * _blinkingIntervalSeconds - 1.0f));
     }

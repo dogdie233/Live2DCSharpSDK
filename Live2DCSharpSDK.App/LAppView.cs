@@ -1,4 +1,6 @@
-﻿using Live2DCSharpSDK.Framework;
+﻿using System.Numerics;
+
+using Live2DCSharpSDK.Framework;
 using Live2DCSharpSDK.Framework.Math;
 
 namespace Live2DCSharpSDK.App;
@@ -11,6 +13,9 @@ namespace Live2DCSharpSDK.App;
 /// </remarks>
 public abstract class LAppView(LAppDelegate lapp)
 {
+    private Vector2 _eyesViewpoint;
+    private Vector2 _lastMousePosition;
+    
     /// <summary>
     /// タッチマネージャー
     /// </summary>
@@ -23,6 +28,22 @@ public abstract class LAppView(LAppDelegate lapp)
     /// viewMatrix
     /// </summary>
     private readonly CubismViewMatrix _viewMatrix = new();
+
+    /// <summary>
+    /// 是
+    /// </summary>
+    public Vector2 EyesViewpoint
+    {
+        get => _eyesViewpoint;
+        set
+        {
+            _eyesViewpoint = value;
+            // 目の視点を更新
+            UpdateEyesViewpointScreen();
+        }
+    }
+    
+    public Vector2 EyesViewpointScreen { get; private set; }
 
     public abstract void RenderPre();
     public abstract void RenderPost();
@@ -98,7 +119,8 @@ public abstract class LAppView(LAppDelegate lapp)
     /// <param name="pointY">スクリーンY座標</param>
     public void OnTouchesBegan(float pointX, float pointY)
     {
-        _touchManager.TouchesBegan(pointX, pointY);
+        _lastMousePosition = new Vector2(pointX, pointY);
+        _touchManager.TouchesBegan(pointX - lapp.WindowX, pointY - lapp.WindowY);
         CubismLog.Debug($"[Live2D App]touchesBegan x:{pointX:#.##} y:{pointY:#.##}");
     }
 
@@ -109,12 +131,33 @@ public abstract class LAppView(LAppDelegate lapp)
     /// <param name="pointY">スクリーンY座標</param>
     public void OnTouchesMoved(float pointX, float pointY)
     {
-        float viewX = TransformViewX(_touchManager.GetX());
-        float viewY = TransformViewY(_touchManager.GetY());
+        var nowPos = new Vector2(pointX, pointY);
+        var delta = nowPos - _lastMousePosition;
+        _lastMousePosition = nowPos;
+        
+        var newPos = new Vector2(lapp.WindowX, lapp.WindowY) + delta;
+        lapp.WindowsPositionSetter?.Invoke(newPos);
 
-        _touchManager.TouchesMoved(pointX, pointY);
+        _touchManager.TouchesMoved(pointX - lapp.WindowX, pointY - lapp.WindowY);
 
-        lapp.Live2dManager.OnDrag(viewX, viewY);
+        // lapp.Live2dManager.OnDrag(viewX, viewY);
+    }
+
+    public void OnLookingMoved(float pointX, float pointY)
+    {
+        pointY = lapp.MonitorHeight - pointY;
+        // Console.WriteLine($"OnLookingMoved: pointX={pointX}, pointY={pointY}");
+        if (pointX < EyesViewpointScreen.X)
+            pointX = (pointX - EyesViewpointScreen.X) / EyesViewpointScreen.X;
+        else
+            pointX = (pointX - EyesViewpointScreen.X) / (lapp.MonitorWidth - EyesViewpointScreen.X);
+        
+        if (pointY < EyesViewpointScreen.Y)
+            pointY = (pointY - EyesViewpointScreen.Y) / EyesViewpointScreen.Y;
+        else
+            pointY = (pointY - EyesViewpointScreen.Y) / (lapp.MonitorHeight - EyesViewpointScreen.Y);
+        
+        lapp.Live2dManager.OnDrag(pointX, pointY);
     }
 
     /// <summary>
@@ -126,12 +169,29 @@ public abstract class LAppView(LAppDelegate lapp)
     {
         // タッチ終了
         var live2DManager = lapp.Live2dManager;
-        live2DManager.OnDrag(0.0f, 0.0f);
+        // live2DManager.OnDrag(0.0f, 0.0f);
         // シングルタップ
         float x = _deviceToScreen.TransformX(_touchManager.GetX()); // 論理座標変換した座標を取得。
         float y = _deviceToScreen.TransformY(_touchManager.GetY()); // 論理座標変換した座標を取得。
         CubismLog.Debug($"[Live2D App]touchesEnded x:{x:#.##} y:{y:#.##}");
-        live2DManager.OnTap(x, y);
+        //live2DManager.OnTap(x, y);
+    }
+
+    public void UpdateWindowPosition(int x, int y)
+    {
+        UpdateEyesViewpointScreen();
+    }
+    
+    private void UpdateEyesViewpointScreen()
+    {                        
+        var screen = new Vector2(
+            _deviceToScreen.InvertTransformX(_viewMatrix.InvertTransformX(_eyesViewpoint.X)) + lapp.WindowX,
+            _deviceToScreen.InvertTransformY(_viewMatrix.InvertTransformY(_eyesViewpoint.Y)) + (lapp.MonitorHeight - lapp.WindowHeight - lapp.WindowY)
+        );
+        if (screen.X == 0) screen.X = 1;
+        if (screen.Y == 0) screen.Y = 1;
+        EyesViewpointScreen = screen;
+        Console.WriteLine($"Update eyes viewpoint: {_eyesViewpoint}, screen: {EyesViewpointScreen}");
     }
 
     /// <summary>

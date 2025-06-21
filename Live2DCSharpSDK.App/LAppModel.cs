@@ -389,7 +389,7 @@ public class LAppModel : CubismUserModel
         if (!motionUpdated)
         {
             // メインモーションの更新がないとき
-            //_eyeBlink?.UpdateParameters(Model, deltaTimeSeconds); // 目パチ
+            _eyeBlink?.UpdateParameters(Model, deltaTimeSeconds); // 目パチ
         }
 
         _expressionManager?.UpdateMotion(Model, deltaTimeSeconds); // 表情でパラメータ更新（相対変化）
@@ -723,14 +723,7 @@ public class LAppModel : CubismUserModel
             }
             tmpMotion.SetEffectIds(_eyeBlinkIds, _lipSyncIds);
 
-            if (_motions.ContainsKey(name))
-            {
-                _motions[name] = tmpMotion;
-            }
-            else
-            {
-                _motions.Add(name, tmpMotion);
-            }
+            _motions[name] = tmpMotion;
         }
     }
 }
